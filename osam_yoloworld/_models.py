@@ -3,6 +3,7 @@ from typing import Tuple
 import imgviz
 import numpy as np
 import onnxruntime
+from loguru import logger
 from osam_core import types
 
 from . import clip
@@ -10,10 +11,19 @@ from . import clip
 
 class _YoloWorld(types.Model):
     def generate(self, request: types.GenerateRequest) -> types.GenerateResponse:
-        if request.prompt is None or request.prompt.texts is None:
-            raise ValueError("request.prompt.texts is required: %r", request)
+        if request.prompt is None:
+            prompt = types.Prompt(texts=["anything"])
+            logger.warning(
+                "Prompt is not given, so using 'anything' as prompt: {prompt!r}",
+                prompt=prompt,
+            )
+        else:
+            prompt = request.prompt
 
-        token = clip.tokenize(texts=request.prompt.texts + [" "])
+        if prompt.texts is None:
+            raise ValueError("prompt.texts is required: prompt=%r", prompt)
+
+        token = clip.tokenize(texts=prompt.texts + [" "])
         (text_features,) = self._inference_sessions["textual"].run(
             None, {"input": token}
         )
@@ -38,9 +48,9 @@ class _YoloWorld(types.Model):
             inference_session=self._inference_sessions["nms"],
             boxes=bboxes,
             scores=scores,
-            iou_threshold=request.prompt.iou_threshold,
-            score_threshold=request.prompt.score_threshold,
-            max_num_detections=request.prompt.max_annotations
+            iou_threshold=prompt.iou_threshold,
+            score_threshold=prompt.score_threshold,
+            max_num_detections=prompt.max_annotations,
         )
         bboxes = _untransform_bboxes(
             bboxes=bboxes,
@@ -53,7 +63,7 @@ class _YoloWorld(types.Model):
                 bounding_box=types.BoundingBox(
                     xmin=bbox[0], ymin=bbox[1], xmax=bbox[2], ymax=bbox[3]
                 ),
-                text=request.prompt.texts[label],
+                text=prompt.texts[label],
                 score=score,
             )
             for bbox, label, score in zip(bboxes, labels, scores)
