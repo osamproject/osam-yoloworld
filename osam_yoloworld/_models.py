@@ -34,29 +34,34 @@ class _YoloWorld(types.Model):
         scores = scores[0]
         bboxes = bboxes[0]
         #
-        iou_threshold = 0.5
-        score_threshold = 0.1
-        max_num_detections = 100
         bboxes, scores, labels = _non_maximum_suppression(
             inference_session=self._inference_sessions["nms"],
             boxes=bboxes,
             scores=scores,
-            iou_threshold=iou_threshold,
-            score_threshold=score_threshold,
-            max_num_detections=max_num_detections,
+            iou_threshold=request.prompt.iou_threshold,
+            score_threshold=request.prompt.score_threshold,
+            max_num_detections=request.prompt.max_annotations
         )
-        bboxes_xyxy = _untransform_bboxes(
+        bboxes = _untransform_bboxes(
             bboxes=bboxes,
             image_size=self._image_size,
             original_image_hw=original_image_hw,
             padding_hw=padding_hw,
         )
+        annotations = [
+            types.Annotation(
+                bounding_box=types.BoundingBox(
+                    xmin=bbox[0], ymin=bbox[1], xmax=bbox[2], ymax=bbox[3]
+                ),
+                text=request.prompt.texts[label],
+                score=score,
+            )
+            for bbox, label, score in zip(bboxes, labels, scores)
+        ]
         return types.GenerateResponse(
             model=self.name,
             image_embedding=None,
-            masks=None,
-            bounding_boxes=bboxes_xyxy[:, [1, 0, 3, 2]],
-            texts=[request.prompt.texts[label] for label in labels],
+            annotations=annotations,
         )
 
 
