@@ -13,7 +13,7 @@ class _YoloWorld(types.Model):
         if request.prompt is None or request.prompt.texts is None:
             raise ValueError("request.prompt.texts is required: %r", request)
 
-        token = clip.tokenize(request.prompt.texts)
+        token = clip.tokenize(texts=request.prompt.texts + [" "])
         (text_features,) = self._inference_sessions["textual"].run(
             None, {"input": token}
         )
