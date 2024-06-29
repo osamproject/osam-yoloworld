@@ -66,7 +66,7 @@ class _YoloWorld(types.Model):
 
 
 class YoloWorldXL(_YoloWorld):
-    name: str = "yoloworld:xl"
+    name: str = "yoloworld:latest"
 
     _image_size = 640
     _blobs = {
